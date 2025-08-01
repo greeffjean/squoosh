@@ -48,6 +48,9 @@ interface SideSettings {
 }
 
 interface Side {
+  // dataArray: ImageData[],
+  // files: File[],
+  // downloadUrls: string[],
   processed?: ImageData;
   file?: File;
   downloadUrl?: string;
@@ -66,6 +69,7 @@ interface Props {
 interface State {
   source?: SourceImage;
   sides: [Side, Side];
+  files: File[];
   /** Source image load */
   loading: boolean;
   mobileView: boolean;
@@ -315,6 +319,7 @@ export default class Compress extends Component<Props, State> {
           },
     ],
     mobileView: this.widthQuery.matches,
+    files: [],
   };
 
   private readonly encodeCache = new ResultCache();
@@ -331,6 +336,7 @@ export default class Compress extends Component<Props, State> {
     super(props);
     this.widthQuery.addListener(this.onMobileWidthChange);
     this.sourceFile = props.files[0];
+    this.state.files = props.files;
     this.queueUpdateImage({ immediate: true });
 
     import('../sw-bridge').then(({ mainAppLoaded }) => mainAppLoaded());
@@ -677,6 +683,7 @@ export default class Compress extends Component<Props, State> {
     const sideSignals = this.sideAbortControllers.map((ac) => ac.signal);
 
     let decoded: ImageData;
+    // let decodedImages: ImageData[] = [];
     let vectorImage: HTMLImageElement | undefined;
 
     // Handle decoding
@@ -695,6 +702,17 @@ export default class Compress extends Component<Props, State> {
           vectorImage = await processSvg(mainSignal, mainJobState.file);
           decoded = drawableToImageData(vectorImage);
         } else {
+          // this.state.files.forEach(async (file) => {
+          //   const result = await decodeImage(
+          //     mainSignal,
+          //     file,
+          //     // Either worker is good enough here.
+          //     this.workerBridges[0],
+          //   );
+
+          //   decodedImages.push(result);
+          //  });
+
           decoded = await decodeImage(
             mainSignal,
             mainJobState.file,
@@ -732,6 +750,7 @@ export default class Compress extends Component<Props, State> {
     }
 
     let source: SourceImage;
+    // let sources: SourceImage[] = [];
 
     // Handle preprocessing
     if (needsPreprocessing) {
@@ -740,6 +759,18 @@ export default class Compress extends Component<Props, State> {
         this.setState({
           loading: true,
         });
+
+        // decodeImages.forEach(async (image) => {
+        //   const preprocessed = await preprocessImage(
+        //     mainSignal,
+        //     image,
+        //     mainJobState.preprocessorState,
+        //     // Either worker is good enough here.
+        //     this.workerBridges[0],
+        //   );
+
+        //   sources.push(preprocessed)
+        // })
 
         const preprocessed = await preprocessImage(
           mainSignal,
@@ -803,7 +834,9 @@ export default class Compress extends Component<Props, State> {
         const jobState = sideJobStates[sideIndex];
         const workerBridge = this.workerBridges[sideIndex];
         let file: File;
+        // let files: File[];
         let data: ImageData;
+        // let dataArray: ImageData[] = [];
         let processed: ImageData | undefined = undefined;
 
         // If there's no encoder state, this is "original image", which also
@@ -859,6 +892,15 @@ export default class Compress extends Component<Props, State> {
               processed = currentState.sides[sideIndex].processed!;
             }
 
+            // files = sources.map(async (src: SourceImage, index: number) => {
+            //   return await processImage(
+            //     signal,
+            //     src,
+            //     jobState.processorState,
+            //     workerBridge,
+            //   );
+            // })
+
             file = await compressImage(
               signal,
               processed,
@@ -866,6 +908,11 @@ export default class Compress extends Component<Props, State> {
               source.file.name,
               workerBridge,
             );
+
+            // dataArray = files.map(async (file: File) => {
+            //   return await decodeImage(signal, file, workerBridge);
+            // })
+
             data = await decodeImage(signal, file, workerBridge);
 
             this.encodeCache.add({
@@ -890,6 +937,9 @@ export default class Compress extends Component<Props, State> {
           const side: Side = {
             ...currentSide,
             data,
+            // dataArray,
+            // files,
+            // downloadUrls,
             file,
             downloadUrl: URL.createObjectURL(file),
             loading: false,

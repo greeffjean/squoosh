@@ -9,6 +9,9 @@ import { Arrow, DownloadIcon } from 'client/lazy-app/icons';
 
 interface Props {
   loading: boolean;
+  // sources?: SourceImage[];
+  // imageFiles?: File[];
+  // downloadUrls?: string[];
   source?: SourceImage;
   imageFile?: File;
   downloadUrl?: string;
