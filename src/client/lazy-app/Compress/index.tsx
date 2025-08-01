@@ -58,7 +58,7 @@ interface Side {
 }
 
 interface Props {
-  file: File;
+  files: File[];
   showSnack: SnackBarElement['showSnackbar'];
   onBack: () => void;
 }
@@ -330,7 +330,7 @@ export default class Compress extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.widthQuery.addListener(this.onMobileWidthChange);
-    this.sourceFile = props.file;
+    this.sourceFile = props.files[0];
     this.queueUpdateImage({ immediate: true });
 
     import('../sw-bridge').then(({ mainAppLoaded }) => mainAppLoaded());
@@ -382,8 +382,8 @@ export default class Compress extends Component<Props, State> {
   };
 
   componentWillReceiveProps(nextProps: Props): void {
-    if (nextProps.file !== this.props.file) {
-      this.sourceFile = nextProps.file;
+    if (nextProps.files[0] !== this.props.files[0]) {
+      this.sourceFile = nextProps.files[0];
       this.queueUpdateImage({ immediate: true });
     }
   }

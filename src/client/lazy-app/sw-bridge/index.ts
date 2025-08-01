@@ -42,7 +42,7 @@ async function updateReady(reg: ServiceWorkerRegistration): Promise<void> {
 }
 
 /** Wait for a shared image */
-export function getSharedImage(): Promise<File> {
+export function getSharedImage(): Promise<File[]> {
   return new Promise((resolve) => {
     const onmessage = (event: MessageEvent) => {
       if (event.data.action !== 'load-image') return;
