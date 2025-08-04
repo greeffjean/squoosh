@@ -325,7 +325,7 @@ export default class Compress extends Component<Props, State> {
     files: [],
   };
 
-  // private readonly encodeCache = new ResultCache();
+  private readonly encodeCache = new ResultCache();
   // One for each side
   private readonly workerBridges = [new WorkerBridge(), new WorkerBridge()];
   /** Abort controller for actions that impact both sites, like source image decoding and preprocessing */
@@ -720,7 +720,7 @@ export default class Compress extends Component<Props, State> {
           vectorImage = await processSvg(mainSignal, mainJobState.file);
           decoded = drawableToImageData(vectorImage);
         } else {
-          // Add support for mlutiple vector images
+          // Add support for multiple vector images
           const decodedImagesResults = await Promise.all(
             this.props.files.map(async (file) => {
               if (file.type.startsWith('image/svg+xml')) {
@@ -884,14 +884,14 @@ export default class Compress extends Component<Props, State> {
           file = source.file;
           data = source.preprocessed;
         } else {
-          // const cacheResult = this.encodeCache.match(
-          //   source.preprocessed,
-          //   jobState.processorState,
-          //   jobState.encoderState,
-          // );
+          const cacheResult = this.encodeCache.match(
+            source.preprocessed,
+            jobState.processorState,
+            jobState.encoderState,
+          );
 
-          if (false) {
-            // ({ file, processed, data } = cacheResult);
+          if (cacheResult) {
+            ({ file, processed, data } = cacheResult);
           } else {
             // Set loading state for this side
             this.setState((currentState) => {
@@ -964,29 +964,18 @@ export default class Compress extends Component<Props, State> {
               }),
             );
 
-            // dataArrayPromise.forEach((data, index) => {
-            //   this.encodeCache.add({
-            //     data,
-            //     processed: processed!,
-            //     file: files[index],
-            //     preprocessed: source.preprocessed,
-            //     encoderState: jobState.encoderState!,
-            //     processorState: jobState.processorState,
-            //   });
-            //  })
-
             dataArray = dataArrayPromise;
 
             data = await decodeImage(signal, file, workerBridge);
 
-            // this.encodeCache.add({
-            //   data,
-            //   processed,
-            //   file,
-            //   preprocessed: source.preprocessed,
-            //   encoderState: jobState.encoderState,
-            //   processorState: jobState.processorState,
-            // });
+            this.encodeCache.add({
+              data,
+              processed,
+              file,
+              preprocessed: source.preprocessed,
+              encoderState: jobState.encoderState,
+              processorState: jobState.processorState,
+            });
           }
         }
 
@@ -1006,7 +995,6 @@ export default class Compress extends Component<Props, State> {
             downloadUrls: files.map((file: File) => URL.createObjectURL(file)),
             sources: this.state.sources,
             file,
-            downloadUrl: undefined, // FIX THIS
             loading: false,
             processed,
             encodedSettings: {
