@@ -70,6 +70,7 @@ export default class Results extends Component<Props, State> {
 
     return (
       <div
+        id="editor-results"
         class={
           (flipSide ? style.resultsRight : style.resultsLeft) +
           ' ' +
