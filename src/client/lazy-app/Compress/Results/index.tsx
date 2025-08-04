@@ -12,7 +12,7 @@ interface Props {
   loading: boolean;
   sources?: SourceImage[];
   imageFiles?: File[];
-  downloadUrls?: string[];
+  downloadUrls?: { url: string; name: string }[];
   source?: SourceImage;
   imageFile?: File;
   downloadUrl?: string;
@@ -49,17 +49,6 @@ export default class Results extends Component<Props, State> {
   }
 
   private onDownload = () => {
-    // GA can’t do floats. So we round to ints. We're deliberately rounding to nearest kilobyte to
-    // avoid cases where exact image sizes leak something interesting about the user.
-    // const before = Math.round(this.props.source!.file.size / 1024);
-    // const after = Math.round(this.props.imageFile!.size / 1024);
-    // const change = Math.round((after / before) * 1000);
-
-    // ga('send', 'event', 'compression', 'download', {
-    //   metric1: before,
-    //   metric2: after,
-    //   metric3: change,
-    // });
     legacyDownload(this.props.downloadUrls || []);
   };
 
@@ -127,8 +116,6 @@ export default class Results extends Component<Props, State> {
         </div>
         <button
           class={showLoadingState ? style.downloadDisable : style.download}
-          // href={downloadUrl}
-          // download={imageFile ? imageFile.name : ''}
           title="Download"
           onClick={this.onDownload}
         >

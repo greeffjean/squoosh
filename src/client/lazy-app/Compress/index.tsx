@@ -34,7 +34,6 @@ import type SnackBarElement from 'shared/custom-els/snack-bar';
 import { drawableToImageData } from '../util/canvas';
 
 export type OutputType = EncoderType | 'identity';
-
 export interface SourceImage {
   file: File;
   decoded: ImageData;
@@ -51,7 +50,7 @@ interface Side {
   sources: SourceImage[];
   dataArray: ImageData[];
   files: File[];
-  downloadUrls: string[];
+  downloadUrls: { url: string; name: string }[];
   processed?: ImageData;
   file?: File;
   downloadUrl?: string;
@@ -720,27 +719,6 @@ export default class Compress extends Component<Props, State> {
           vectorImage = await processSvg(mainSignal, mainJobState.file);
           decoded = drawableToImageData(vectorImage);
         } else {
-          // Add support for multiple vector images
-          const decodedImagesResults = await Promise.all(
-            this.props.files.map(async (file) => {
-              if (file.type.startsWith('image/svg+xml')) {
-                vectorImage = await processSvg(mainSignal, file);
-                return drawableToImageData(vectorImage);
-              } else {
-                const result = await decodeImage(
-                  mainSignal,
-                  file,
-                  // Either worker is good enough here.
-                  this.workerBridges[0],
-                );
-
-                return result;
-              }
-            }),
-          );
-
-          decodedImages = decodedImagesResults;
-
           decoded = await decodeImage(
             mainSignal,
             mainJobState.file,
@@ -748,6 +726,27 @@ export default class Compress extends Component<Props, State> {
             this.workerBridges[0],
           );
         }
+
+        // Add support for multiple vector images
+        const decodedImagesResults = await Promise.all(
+          this.props.files.map(async (file) => {
+            if (file.type.startsWith('image/svg+xml')) {
+              const vectorImage = await processSvg(mainSignal, file);
+              return drawableToImageData(vectorImage);
+            } else {
+              const result = await decodeImage(
+                mainSignal,
+                file,
+                // Either worker is good enough here.
+                this.workerBridges[0],
+              );
+
+              return result;
+            }
+          }),
+        );
+
+        decodedImages = decodedImagesResults;
 
         // Set default resize values
         this.setState((currentState) => {
@@ -806,7 +805,6 @@ export default class Compress extends Component<Props, State> {
           decodedImages.map(async (image, index: number) => {
             return {
               decoded: image,
-              vectorImage,
               preprocessed: await preprocessImage(
                 mainSignal,
                 image,
@@ -992,7 +990,10 @@ export default class Compress extends Component<Props, State> {
             data,
             dataArray,
             files,
-            downloadUrls: files.map((file: File) => URL.createObjectURL(file)),
+            downloadUrls: files.map((file: File) => ({
+              url: URL.createObjectURL(file),
+              name: file.name,
+            })),
             sources: this.state.sources,
             file,
             loading: false,
@@ -1047,7 +1048,6 @@ export default class Compress extends Component<Props, State> {
     const results = sides.map((side, index) => (
       <Results
         downloadUrls={side.downloadUrls}
-        sources={side.sources} // Not needed here
         imageFiles={side.files}
         downloadUrl={side.downloadUrl}
         imageFile={side.file}

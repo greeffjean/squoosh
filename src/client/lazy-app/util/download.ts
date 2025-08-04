@@ -1,8 +1,10 @@
-async function legacyDownload(blobURLArray: Array<string>) {
-  blobURLArray.forEach((url) => {
+async function legacyDownload(
+  blobURLArray: Array<{ url: string; name: string }>,
+) {
+  blobURLArray.forEach(({ url, name }) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = url.split('/').pop() || 'download';
+    link.download = name || 'download';
     link.click();
     URL.revokeObjectURL(url);
     link.remove();
