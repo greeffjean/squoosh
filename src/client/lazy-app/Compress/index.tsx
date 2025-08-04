@@ -48,9 +48,10 @@ interface SideSettings {
 }
 
 interface Side {
-  // dataArray: ImageData[],
-  // files: File[],
-  // downloadUrls: string[],
+  sources: SourceImage[];
+  dataArray: ImageData[];
+  files: File[];
+  downloadUrls: string[];
   processed?: ImageData;
   file?: File;
   downloadUrl?: string;
@@ -70,6 +71,7 @@ interface State {
   source?: SourceImage;
   sides: [Side, Side];
   files: File[];
+  sources: SourceImage[];
   /** Source image load */
   loading: boolean;
   mobileView: boolean;
@@ -286,6 +288,7 @@ export default class Compress extends Component<Props, State> {
 
   state: State = {
     source: undefined,
+    sources: [],
     loading: false,
     preprocessorState: defaultPreprocessorState,
     // Tasking catched side settings if available otherwise taking default settings
@@ -322,7 +325,7 @@ export default class Compress extends Component<Props, State> {
     files: [],
   };
 
-  private readonly encodeCache = new ResultCache();
+  // private readonly encodeCache = new ResultCache();
   // One for each side
   private readonly workerBridges = [new WorkerBridge(), new WorkerBridge()];
   /** Abort controller for actions that impact both sites, like source image decoding and preprocessing */
@@ -336,9 +339,7 @@ export default class Compress extends Component<Props, State> {
     super(props);
     this.widthQuery.addListener(this.onMobileWidthChange);
     this.sourceFile = props.files[0];
-    this.state.files = props.files;
     this.queueUpdateImage({ immediate: true });
-
     import('../sw-bridge').then(({ mainAppLoaded }) => mainAppLoaded());
   }
 
@@ -387,12 +388,12 @@ export default class Compress extends Component<Props, State> {
     });
   };
 
-  componentWillReceiveProps(nextProps: Props): void {
-    if (nextProps.files[0] !== this.props.files[0]) {
-      this.sourceFile = nextProps.files[0];
-      this.queueUpdateImage({ immediate: true });
-    }
-  }
+  // componentWillReceiveProps(nextProps: Props): void {
+  //   if (nextProps.files[0] !== this.props.files[0]) {
+  //     this.sourceFile = nextProps.files[0];
+  //     this.queueUpdateImage({ immediate: true });
+  //   }
+  // }
 
   componentWillUnmount(): void {
     updateDocumentTitle({ loading: false });
@@ -404,6 +405,15 @@ export default class Compress extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props, prevState: State): void {
+    if (prevProps.files[0] !== this.props.files[0]) {
+      this.sourceFile = this.props.files[0];
+      this.queueUpdateImage({ immediate: true });
+    }
+
+    if (this.props.files.length > 1) {
+      this.props.showSnack(`All changes will be applied to all images`);
+    }
+
     const wasLoading =
       prevState.loading ||
       prevState.sides[0].loading ||
@@ -419,6 +429,15 @@ export default class Compress extends Component<Props, State> {
         filename: this.state.source?.file.name,
       });
     }
+
+    // if (this.state.sources.length > 0) {
+    //   this.setState((currentState) => ({
+    //     ...currentState,
+    //     files: this.props.files,
+    //     sourceFile: this.props.files[0],
+    //   }));
+    // }
+
     this.queueUpdateImage();
   }
 
@@ -429,9 +448,9 @@ export default class Compress extends Component<Props, State> {
 
     // Create a new object URL for the new settings. This avoids both sides sharing a URL, which
     // means it can be safely revoked without impacting the other side.
-    if (newSettings.file) {
-      newSettings.downloadUrl = URL.createObjectURL(newSettings.file);
-    }
+    // if (newSettings.file) {
+    //   newSettings.downloadUrl = URL.createObjectURL(newSettings.file);
+    // }
 
     this.setState({
       sides: cleanSet(this.state.sides, otherIndex, newSettings),
@@ -582,7 +601,6 @@ export default class Compress extends Component<Props, State> {
     // Call updateImage after this delay, unless queueUpdateImage is called
     // again, in which case the timeout is reset.
     const delay = 100;
-
     clearTimeout(this.updateImageTimeout);
     if (immediate) {
       this.updateImage();
@@ -636,7 +654,7 @@ export default class Compress extends Component<Props, State> {
     }));
 
     // Figure out what needs doing:
-    const needsDecoding = latestMainJobState.file != mainJobState.file;
+    const needsDecoding = latestMainJobState.file != mainJobState.file; // Possible need to change this
     const needsPreprocessing =
       needsDecoding ||
       latestMainJobState.preprocessorState !== mainJobState.preprocessorState;
@@ -683,7 +701,7 @@ export default class Compress extends Component<Props, State> {
     const sideSignals = this.sideAbortControllers.map((ac) => ac.signal);
 
     let decoded: ImageData;
-    // let decodedImages: ImageData[] = [];
+    let decodedImages: ImageData[] = [];
     let vectorImage: HTMLImageElement | undefined;
 
     // Handle decoding
@@ -702,16 +720,26 @@ export default class Compress extends Component<Props, State> {
           vectorImage = await processSvg(mainSignal, mainJobState.file);
           decoded = drawableToImageData(vectorImage);
         } else {
-          // this.state.files.forEach(async (file) => {
-          //   const result = await decodeImage(
-          //     mainSignal,
-          //     file,
-          //     // Either worker is good enough here.
-          //     this.workerBridges[0],
-          //   );
+          // Add support for mlutiple vector images
+          const decodedImagesResults = await Promise.all(
+            this.props.files.map(async (file) => {
+              if (file.type.startsWith('image/svg+xml')) {
+                vectorImage = await processSvg(mainSignal, file);
+                return drawableToImageData(vectorImage);
+              } else {
+                const result = await decodeImage(
+                  mainSignal,
+                  file,
+                  // Either worker is good enough here.
+                  this.workerBridges[0],
+                );
 
-          //   decodedImages.push(result);
-          //  });
+                return result;
+              }
+            }),
+          );
+
+          decodedImages = decodedImagesResults;
 
           decoded = await decodeImage(
             mainSignal,
@@ -750,7 +778,6 @@ export default class Compress extends Component<Props, State> {
     }
 
     let source: SourceImage;
-    // let sources: SourceImage[] = [];
 
     // Handle preprocessing
     if (needsPreprocessing) {
@@ -759,18 +786,6 @@ export default class Compress extends Component<Props, State> {
         this.setState({
           loading: true,
         });
-
-        // decodeImages.forEach(async (image) => {
-        //   const preprocessed = await preprocessImage(
-        //     mainSignal,
-        //     image,
-        //     mainJobState.preprocessorState,
-        //     // Either worker is good enough here.
-        //     this.workerBridges[0],
-        //   );
-
-        //   sources.push(preprocessed)
-        // })
 
         const preprocessed = await preprocessImage(
           mainSignal,
@@ -786,6 +801,30 @@ export default class Compress extends Component<Props, State> {
           preprocessed,
           file: mainJobState.file,
         };
+
+        const sourcesPromise: SourceImage[] = await Promise.all(
+          decodedImages.map(async (image, index: number) => {
+            return {
+              decoded: image,
+              vectorImage,
+              preprocessed: await preprocessImage(
+                mainSignal,
+                image,
+                mainJobState.preprocessorState,
+                // Either worker is good enough here.
+                this.workerBridges[0],
+              ),
+              file: this.props.files[index],
+            };
+          }),
+        );
+
+        this.setState((currentState) => ({
+          ...currentState,
+          sources: sourcesPromise,
+        }));
+
+        // console.log("🚀 ~ Compress ~ updateImage ~ sources:", this.state.sources)
 
         // Update state for process completion, including intermediate render
         this.setState((currentState) => {
@@ -834,9 +873,9 @@ export default class Compress extends Component<Props, State> {
         const jobState = sideJobStates[sideIndex];
         const workerBridge = this.workerBridges[sideIndex];
         let file: File;
-        // let files: File[];
+        let files: File[] = [];
         let data: ImageData;
-        // let dataArray: ImageData[] = [];
+        let dataArray: ImageData[] = [];
         let processed: ImageData | undefined = undefined;
 
         // If there's no encoder state, this is "original image", which also
@@ -845,14 +884,14 @@ export default class Compress extends Component<Props, State> {
           file = source.file;
           data = source.preprocessed;
         } else {
-          const cacheResult = this.encodeCache.match(
-            source.preprocessed,
-            jobState.processorState,
-            jobState.encoderState,
-          );
+          // const cacheResult = this.encodeCache.match(
+          //   source.preprocessed,
+          //   jobState.processorState,
+          //   jobState.encoderState,
+          // );
 
-          if (cacheResult) {
-            ({ file, processed, data } = cacheResult);
+          if (false) {
+            // ({ file, processed, data } = cacheResult);
           } else {
             // Set loading state for this side
             this.setState((currentState) => {
@@ -892,14 +931,24 @@ export default class Compress extends Component<Props, State> {
               processed = currentState.sides[sideIndex].processed!;
             }
 
-            // files = sources.map(async (src: SourceImage, index: number) => {
-            //   return await processImage(
-            //     signal,
-            //     src,
-            //     jobState.processorState,
-            //     workerBridge,
-            //   );
-            // })
+            const filePromise = await Promise.all(
+              this.state.sources.map(async (src: SourceImage, index) => {
+                return compressImage(
+                  signal,
+                  this.state.sources[index].preprocessed, // CHECK THIS
+                  jobState.encoderState!,
+                  src.file.name,
+                  workerBridge,
+                );
+              }),
+            );
+
+            console.log(
+              '🚀 ~ Compress ~ updateImage ~ filePromise:',
+              filePromise,
+            );
+
+            files = filePromise;
 
             file = await compressImage(
               signal,
@@ -909,20 +958,35 @@ export default class Compress extends Component<Props, State> {
               workerBridge,
             );
 
-            // dataArray = files.map(async (file: File) => {
-            //   return await decodeImage(signal, file, workerBridge);
-            // })
+            const dataArrayPromise = await Promise.all(
+              files.map((file: File) => {
+                return decodeImage(signal, file, workerBridge);
+              }),
+            );
+
+            // dataArrayPromise.forEach((data, index) => {
+            //   this.encodeCache.add({
+            //     data,
+            //     processed: processed!,
+            //     file: files[index],
+            //     preprocessed: source.preprocessed,
+            //     encoderState: jobState.encoderState!,
+            //     processorState: jobState.processorState,
+            //   });
+            //  })
+
+            dataArray = dataArrayPromise;
 
             data = await decodeImage(signal, file, workerBridge);
 
-            this.encodeCache.add({
-              data,
-              processed,
-              file,
-              preprocessed: source.preprocessed,
-              encoderState: jobState.encoderState,
-              processorState: jobState.processorState,
-            });
+            // this.encodeCache.add({
+            //   data,
+            //   processed,
+            //   file,
+            //   preprocessed: source.preprocessed,
+            //   encoderState: jobState.encoderState,
+            //   processorState: jobState.processorState,
+            // });
           }
         }
 
@@ -937,11 +1001,12 @@ export default class Compress extends Component<Props, State> {
           const side: Side = {
             ...currentSide,
             data,
-            // dataArray,
-            // files,
-            // downloadUrls,
+            dataArray,
+            files,
+            downloadUrls: files.map((file: File) => URL.createObjectURL(file)),
+            sources: this.state.sources,
             file,
-            downloadUrl: URL.createObjectURL(file),
+            downloadUrl: undefined, // FIX THIS
             loading: false,
             processed,
             encodedSettings: {
@@ -993,6 +1058,9 @@ export default class Compress extends Component<Props, State> {
 
     const results = sides.map((side, index) => (
       <Results
+        downloadUrls={side.downloadUrls}
+        sources={side.sources} // Not needed here
+        imageFiles={side.files}
         downloadUrl={side.downloadUrl}
         imageFile={side.file}
         source={source}

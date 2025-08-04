@@ -117,7 +117,7 @@ export default class App extends Component<Props, State> {
       <div class={style.app}>
         <file-drop
           accept="image/*"
-          multiple={false}
+          multiple={true}
           onfiledrop={this.onFileDrop}
           class={style.drop}
         >

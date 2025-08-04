@@ -6,12 +6,13 @@ import 'shared/custom-els/loading-spinner';
 import { SourceImage } from '../';
 import prettyBytes from './pretty-bytes';
 import { Arrow, DownloadIcon } from 'client/lazy-app/icons';
+import { legacyDownload } from 'client/lazy-app/util/download';
 
 interface Props {
   loading: boolean;
-  // sources?: SourceImage[];
-  // imageFiles?: File[];
-  // downloadUrls?: string[];
+  sources?: SourceImage[];
+  imageFiles?: File[];
+  downloadUrls?: string[];
   source?: SourceImage;
   imageFile?: File;
   downloadUrl?: string;
@@ -50,17 +51,19 @@ export default class Results extends Component<Props, State> {
   private onDownload = () => {
     // GA can’t do floats. So we round to ints. We're deliberately rounding to nearest kilobyte to
     // avoid cases where exact image sizes leak something interesting about the user.
-    const before = Math.round(this.props.source!.file.size / 1024);
-    const after = Math.round(this.props.imageFile!.size / 1024);
-    const change = Math.round((after / before) * 1000);
+    // const before = Math.round(this.props.source!.file.size / 1024);
+    // const after = Math.round(this.props.imageFile!.size / 1024);
+    // const change = Math.round((after / before) * 1000);
 
-    ga('send', 'event', 'compression', 'download', {
-      metric1: before,
-      metric2: after,
-      metric3: change,
-    });
+    // ga('send', 'event', 'compression', 'download', {
+    //   metric1: before,
+    //   metric2: after,
+    //   metric3: change,
+    // });
+    legacyDownload(this.props.downloadUrls || []);
   };
 
+  // NOT ALL PROPS ARE BEING USED HERE
   render(
     { source, imageFile, downloadUrl, flipSide, typeLabel }: Props,
     { showLoadingState }: State,
@@ -122,10 +125,10 @@ export default class Results extends Component<Props, State> {
             </div>
           </div>
         </div>
-        <a
+        <button
           class={showLoadingState ? style.downloadDisable : style.download}
-          href={downloadUrl}
-          download={imageFile ? imageFile.name : ''}
+          // href={downloadUrl}
+          // download={imageFile ? imageFile.name : ''}
           title="Download"
           onClick={this.onDownload}
         >
@@ -138,7 +141,7 @@ export default class Results extends Component<Props, State> {
             <DownloadIcon />
           </div>
           {showLoadingState && <loading-spinner />}
-        </a>
+        </button>
       </div>
     );
   }
