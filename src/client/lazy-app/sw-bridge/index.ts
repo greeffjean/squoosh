@@ -46,7 +46,7 @@ export function getSharedImage(): Promise<File[]> {
   return new Promise((resolve) => {
     const onmessage = (event: MessageEvent) => {
       if (event.data.action !== 'load-image') return;
-      resolve(event.data.file);
+      resolve([event.data.file]);
       navigator.serviceWorker.removeEventListener('message', onmessage);
     };
 

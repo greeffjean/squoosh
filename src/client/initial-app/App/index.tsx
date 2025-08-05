@@ -76,7 +76,6 @@ export default class App extends Component<Props, State> {
 
   private onFileDrop = ({ files }: FileDropEvent) => {
     if (!files || files.length === 0) return;
-    // const data = files[0];
     this.openEditor();
     this.setState({ files });
   };

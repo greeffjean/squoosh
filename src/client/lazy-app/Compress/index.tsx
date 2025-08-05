@@ -387,13 +387,6 @@ export default class Compress extends Component<Props, State> {
     });
   };
 
-  // componentWillReceiveProps(nextProps: Props): void {
-  //   if (nextProps.files[0] !== this.props.files[0]) {
-  //     this.sourceFile = nextProps.files[0];
-  //     this.queueUpdateImage({ immediate: true });
-  //   }
-  // }
-
   componentWillUnmount(): void {
     updateDocumentTitle({ loading: false });
     this.widthQuery.removeListener(this.onMobileWidthChange);
@@ -410,7 +403,7 @@ export default class Compress extends Component<Props, State> {
     }
 
     if (this.props.files.length > 1) {
-      this.props.showSnack(`All changes will be applied to all images`);
+      this.props.showSnack(`Changes applied will take effect on all images`);
     }
 
     const wasLoading =
@@ -428,14 +421,6 @@ export default class Compress extends Component<Props, State> {
         filename: this.state.source?.file.name,
       });
     }
-
-    // if (this.state.sources.length > 0) {
-    //   this.setState((currentState) => ({
-    //     ...currentState,
-    //     files: this.props.files,
-    //     sourceFile: this.props.files[0],
-    //   }));
-    // }
 
     this.queueUpdateImage();
   }
@@ -653,7 +638,7 @@ export default class Compress extends Component<Props, State> {
     }));
 
     // Figure out what needs doing:
-    const needsDecoding = latestMainJobState.file != mainJobState.file; // Possible need to change this
+    const needsDecoding = latestMainJobState.file != mainJobState.file;
     const needsPreprocessing =
       needsDecoding ||
       latestMainJobState.preprocessorState !== mainJobState.preprocessorState;
@@ -734,7 +719,7 @@ export default class Compress extends Component<Props, State> {
               const vectorImage = await processSvg(mainSignal, file);
               return drawableToImageData(vectorImage);
             } else {
-              const result = await decodeImage(
+              const result = decodeImage(
                 mainSignal,
                 file,
                 // Either worker is good enough here.
@@ -801,7 +786,7 @@ export default class Compress extends Component<Props, State> {
           file: mainJobState.file,
         };
 
-        const sourcesPromise: SourceImage[] = await Promise.all(
+        await Promise.all(
           decodedImages.map(async (image, index: number) => {
             return {
               decoded: image,
@@ -815,14 +800,15 @@ export default class Compress extends Component<Props, State> {
               file: this.props.files[index],
             };
           }),
-        );
-
-        this.setState((currentState) => ({
-          ...currentState,
-          sources: sourcesPromise,
-        }));
-
-        // console.log("🚀 ~ Compress ~ updateImage ~ sources:", this.state.sources)
+        ).then((response) => {
+          if (response.length > 0) {
+            this.setState((currentState) => ({
+              ...currentState,
+              sources: response,
+            }));
+          }
+          return response;
+        });
 
         // Update state for process completion, including intermediate render
         this.setState((currentState) => {
@@ -930,7 +916,7 @@ export default class Compress extends Component<Props, State> {
             }
 
             const filePromise = await Promise.all(
-              this.state.sources.map(async (src: SourceImage, index) => {
+              this.state.sources.map((src: SourceImage, index) => {
                 return compressImage(
                   signal,
                   this.state.sources[index].preprocessed, // CHECK THIS
@@ -939,11 +925,6 @@ export default class Compress extends Component<Props, State> {
                   workerBridge,
                 );
               }),
-            );
-
-            console.log(
-              '🚀 ~ Compress ~ updateImage ~ filePromise:',
-              filePromise,
             );
 
             files = filePromise;
@@ -1047,6 +1028,7 @@ export default class Compress extends Component<Props, State> {
 
     const results = sides.map((side, index) => (
       <Results
+        showSnack={this.props.showSnack}
         downloadUrls={side.downloadUrls}
         imageFiles={side.files}
         downloadUrl={side.downloadUrl}

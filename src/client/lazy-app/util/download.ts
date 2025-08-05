@@ -1,4 +1,4 @@
-async function legacyDownload(
+async function downloadMany(
   blobURLArray: Array<{ url: string; name: string }>,
 ) {
   blobURLArray.forEach(({ url, name }) => {
@@ -11,4 +11,4 @@ async function legacyDownload(
   });
 }
 
-export { legacyDownload };
+export { downloadMany };

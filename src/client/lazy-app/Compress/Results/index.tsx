@@ -6,11 +6,10 @@ import 'shared/custom-els/loading-spinner';
 import { SourceImage } from '../';
 import prettyBytes from './pretty-bytes';
 import { Arrow, DownloadIcon } from 'client/lazy-app/icons';
-import { legacyDownload } from 'client/lazy-app/util/download';
+import { downloadMany } from 'client/lazy-app/util/download';
 
 interface Props {
   loading: boolean;
-  sources?: SourceImage[];
   imageFiles?: File[];
   downloadUrls?: { url: string; name: string }[];
   source?: SourceImage;
@@ -18,6 +17,7 @@ interface Props {
   downloadUrl?: string;
   flipSide: boolean;
   typeLabel: string;
+  showSnack: (message: string) => void;
 }
 
 interface State {
@@ -49,12 +49,15 @@ export default class Results extends Component<Props, State> {
   }
 
   private onDownload = () => {
-    legacyDownload(this.props.downloadUrls || []);
+    if (this.props.downloadUrls?.length) downloadMany(this.props.downloadUrls);
+    else {
+      this.props.showSnack('No files to download');
+    }
   };
 
   // NOT ALL PROPS ARE BEING USED HERE
   render(
-    { source, imageFile, downloadUrl, flipSide, typeLabel }: Props,
+    { source, imageFile, flipSide, typeLabel }: Props,
     { showLoadingState }: State,
   ) {
     const prettySize = imageFile && prettyBytes(imageFile.size);
