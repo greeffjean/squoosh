@@ -23,17 +23,17 @@
   }
 }
 
-#editor-results button {
-  background: transparent;
-  border: none;
-}
-
 .results {
   --download-overflow-size: 9px;
   background: rgba(0, 0, 0, 0.67);
   border-radius: 5px;
   display: grid;
   grid-template-columns: max-content [bubble] 1fr [download] max-content;
+
+  button {
+    background: transparent;
+    border: none;
+  }
 
   @media (min-width: 600px) {
     --download-overflow-size: 30px;
